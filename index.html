@@ -99,6 +99,8 @@
   .exmeta { display: flex; align-items: center; gap: var(--xxs); white-space: nowrap; }
   .restbtn { height: 32px; padding: 0 var(--xxs); border: 1px solid var(--muted-soft); color: var(--ink); font-size: 11px; font-weight: 600; letter-spacing: 1.1px; text-transform: uppercase; font-variant-numeric: tabular-nums; }
   .restbtn:active { background: var(--canvas); }
+  .swap { display: block; height: 32px; padding: 0 var(--xxs); margin-bottom: var(--xxs); border: 1px solid var(--muted-soft); color: var(--ink); font-size: 11px; font-weight: 600; letter-spacing: 1.1px; text-transform: uppercase; }
+  .swap:active { background: var(--canvas); }
   .norest { font-size: 11px; font-weight: 600; letter-spacing: 1.1px; text-transform: uppercase; color: var(--muted-soft); }
   .dayhead .right { display: flex; align-items: baseline; gap: var(--xs); }
   .elapsed { color: var(--ink); font-size: 18px; font-weight: 500; font-variant-numeric: tabular-nums; }
@@ -186,15 +188,16 @@
 (function () {
   'use strict';
   const KEY = 'bb2h_v1';
+  const PROG = 3; // bump when a day's exercise list changes, so half-filled drafts from the old list are dropped
 
   const DAYS = [
     { id: 'lower', dow: 'Mon', label: 'Lower', title: 'Lower', type: 'bb', exercises: [
       { name: 'Back squat', sets: 3, target: '6–8', f: ['kg', 'reps'], rest: 180 },
       { name: 'RDL', sets: 3, target: '8–10', f: ['kg', 'reps'], rest: 120 },
-      { name: 'Bulgarian split squat', sets: 2, target: '8–10/leg', f: ['kg', 'reps'], rest: 90 },
-      { name: 'Nordic curl', sets: 2, target: '5–8', f: ['reps'], rest: 90 },
-      { name: 'Standing calf raise', sets: 3, target: '12–15', f: ['kg', 'reps'], rest: 60 },
-      { name: 'Hanging knee raise', sets: 2, target: '12', f: ['reps'], rest: 60 }
+      { name: 'Bulgarian split squat', sets: 2, target: '8–10/leg', f: ['kg', 'reps'], rest: 0, g: 'A' },
+      { name: 'Lying DB leg curl', sets: 2, target: '10–15', f: ['kg', 'reps'], rest: 90, g: 'A' },
+      { name: 'Standing calf raise', sets: 3, target: '12–15', f: ['kg', 'reps'], rest: 0, g: 'B' },
+      { name: 'Hanging knee raise', sets: 3, target: '12', f: ['reps'], rest: 60, g: 'B' }
     ]},
     { id: 'hyba', dow: 'Tue', label: 'Hybrid A', title: 'Hybrid A', type: 'hy', optional: true, exercises: [
       { name: 'Countermovement jump', sets: 3, target: '4', f: ['reps', 'cm'], rest: 90 },
@@ -203,14 +206,15 @@
       { name: '20m acceleration', sets: 4, target: '1', f: ['reps', 'sec'], rest: 120 }
     ]},
     { id: 'upper', dow: 'Wed', label: 'Upper', title: 'Upper', type: 'bb', exercises: [
-      { name: 'Bench press', sets: 3, target: '6–8', f: ['kg', 'reps'], rest: 150 },
-      { name: 'Pull-ups', sets: 3, target: '6–10', f: ['kg', 'reps'], rest: 120 },
-      { name: 'Incline DB press', sets: 3, target: '8–12', f: ['kg', 'reps'], rest: 90 },
-      { name: 'Incline bench DB row', sets: 3, target: '8–12', f: ['kg', 'reps'], rest: 90 },
+      { name: 'Bench press', sets: 3, target: '6–8', f: ['kg', 'reps'], rest: 0, g: 'A' },
+      { name: 'Pull-ups', sets: 3, target: '6–10', f: ['kg', 'reps'], rest: 120, g: 'A' },
+      { name: 'Decline DB press', sets: 3, target: '8–12', f: ['kg', 'reps'], rest: 0, g: 'B' },
+      { name: 'Bent-over DB row', sets: 3, target: '8–12', f: ['kg', 'reps'], rest: 90, g: 'B' },
+      { name: 'Incline DB press', sets: 2, target: '10–12', f: ['kg', 'reps'], rest: 0, g: 'C' },
+      { name: 'Rear-delt fly', sets: 2, target: '15', f: ['kg', 'reps'], rest: 60, g: 'C' },
       { name: 'Lateral raise', sets: 3, target: '12–15', f: ['kg', 'reps'], rest: 60 },
-      { name: 'Rear-delt fly', sets: 2, target: '15', f: ['kg', 'reps'], rest: 60 },
-      { name: 'DB curl', sets: 2, target: '10–12', f: ['kg', 'reps'], rest: 60 },
-      { name: 'Overhead DB tricep extension', sets: 2, target: '10–15', f: ['kg', 'reps'], rest: 60 }
+      { name: 'DB curl', sets: 2, target: '10–12', f: ['kg', 'reps'], rest: 0, g: 'D' },
+      { name: 'Overhead DB tricep extension', sets: 2, target: '10–15', f: ['kg', 'reps'], rest: 60, g: 'D' }
     ]},
     { id: 'hybb', dow: 'Thu', label: 'Hybrid B', title: 'Hybrid B', type: 'hy', optional: true, exercises: [
       { name: 'Lateral bound', sets: 3, target: '4/side', f: ['reps', 'cm'], rest: 90 },
@@ -221,16 +225,17 @@
     { id: 'full', dow: 'Fri', label: 'Full', title: 'Full body', type: 'bb', exercises: [
       { name: 'Broad jump', sets: 3, target: '3', f: ['reps', 'cm'], rest: 90 },
       { name: 'Deadlift', sets: 3, target: '5–6', f: ['kg', 'reps'], rest: 180 },
-      { name: 'DB walking lunge', sets: 2, target: '10/leg', f: ['kg', 'reps'], rest: 90 },
-      { name: 'Flat DB press', sets: 3, target: '8–12', f: ['kg', 'reps'], rest: 90 },
-      { name: 'Single-arm DB row', sets: 3, target: '8–12/side', f: ['kg', 'reps'], rest: 90 },
-      { name: 'Seated DB shoulder press', sets: 2, target: '8–12', f: ['kg', 'reps'], rest: 90 },
+      { name: 'Weighted dips', opts: ['Weighted dips', 'Flat DB press'], sets: 3, target: '8–12', f: ['kg', 'reps'], rest: 0, g: 'A' },
+      { name: 'Single-arm DB row', sets: 3, target: '8–12/side', f: ['kg', 'reps'], rest: 90, g: 'A' },
+      { name: 'DB walking lunge', sets: 2, target: '10/leg', f: ['kg', 'reps'], rest: 0, g: 'B' },
+      { name: 'Seated DB shoulder press', sets: 2, target: '8–12', f: ['kg', 'reps'], rest: 90, g: 'B' },
       { name: 'Farmer’s carry', sets: 3, target: '30 m', f: ['kg', 'm'], rest: 90 }
     ]}
   ];
   const LEGACY = { hybrid: 'Hybrid' };
   const FIELD = { kg: { mode: 'decimal' }, reps: { mode: 'numeric' }, cm: { mode: 'numeric' }, sec: { mode: 'decimal' }, m: { mode: 'numeric' } };
   // Recommended rest in seconds lives on each exercise: heavy compounds 2:30–3:00, secondary compounds 1:30–2:00, isolation 1:00, explosive work 1:30–2:00.
+  // In a superset (same g) the first exercise has rest 0: go straight to its partner, then rest after the pair.
   function restFor(ex) { return ex.rest === undefined ? 90 : ex.rest; }
   function fmtClock(sec) { sec = Math.max(0, Math.floor(sec)); const m = Math.floor(sec / 60), s = sec % 60; return m + ':' + (s < 10 ? '0' : '') + s; }
   function fmtDur(sec) { if (!sec) return ''; const m = Math.round(sec / 60); if (m < 1) return 'under 1 min'; return m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + (m % 60) + ' min'; }
@@ -238,10 +243,17 @@
   function elapsedOf(dr) { return dr.started ? (Date.now() - new Date(dr.started).getTime()) / 1000 : 0; }
 
   // ---------- state ----------
-  const fresh = () => ({ week: 1, sessions: [], drafts: {}, view: 'train', day: 'lower' });
+  const fresh = () => ({ week: 1, sessions: [], drafts: {}, picks: {}, view: 'train', day: 'lower', prog: PROG });
   let S = load();
   function load() {
-    try { const r = localStorage.getItem(KEY); if (r) return Object.assign(fresh(), JSON.parse(r)); } catch (e) {}
+    try {
+      const r = localStorage.getItem(KEY);
+      if (r) {
+        const o = JSON.parse(r); const st = Object.assign(fresh(), o);
+        if (o.prog !== PROG) { ['lower', 'upper', 'full'].forEach(id => { delete st.drafts[id]; }); st.prog = PROG; }
+        return st;
+      }
+    } catch (e) {}
     return fresh();
   }
   function save() {
@@ -264,6 +276,18 @@
       if (ex && ex.sets && ex.sets.length) return ex.sets;
     }
     return null;
+  }
+  // An exercise with opts lets the user pick between alternatives; the pick is remembered per slot.
+  function nameOf(day, ex, i) {
+    if (!ex.opts) return ex.name;
+    const p = S.picks && S.picks[day.id + ':' + i];
+    return ex.opts.indexOf(p) >= 0 ? p : ex.opts[0];
+  }
+  // Fields for a logged exercise: from the current program if it is still there, otherwise from what was logged.
+  function fieldsOf(name, sets) {
+    for (const d of DAYS) for (const x of d.exercises) if (x.name === name || (x.opts && x.opts.indexOf(name) >= 0)) return x.f;
+    const got = ['kg', 'reps', 'cm', 'sec', 'm'].filter(k => (sets || []).some(st => st[k] !== undefined && st[k] !== ''));
+    return got.length ? got : ['kg', 'reps'];
   }
   function e1rm(set) { const k = +set.kg, r = +set.reps; if (!k || !r) return 0; return k * (1 + r / 30); }
   function bestFor(name) {
@@ -303,21 +327,23 @@
     day.exercises.forEach((ex, i) => {
       if (ex.g && ex.g !== lastG) h += '<div class="grp">Superset ' + ex.g + '</div>';
       lastG = ex.g || null;
-      const prev = prevFor(ex.name);
-      const best = (ex.f[0] === 'kg' && ex.f[1] === 'reps') ? bestFor(ex.name) : 0;
+      const nm = nameOf(day, ex, i);
+      const prev = prevFor(nm);
+      const best = (ex.f[0] === 'kg' && ex.f[1] === 'reps') ? bestFor(nm) : 0;
       const sets = dr.sets[i];
       const isPR = best > 0 && sets.some(st => st.done && e1rm(st) > best);
       const one = ex.f.length === 1;
       const rest = restFor(ex);
       const restHtml = rest ? '<button class="restbtn" data-act="tstart" data-s="' + rest + '" aria-label="Start rest timer">Rest ' + fmtClock(rest) + '</button>' : '<span class="norest">No rest</span>';
-      h += '<section class="ex"><div class="exhead"><span class="exname">' + esc(ex.name) + (isPR ? '<span class="pr">PR</span>' : '') + '</span><span class="exmeta"><span class="extarget">' + ex.sets + ' × ' + esc(ex.target) + '</span>' + restHtml + '</span></div>';
+      h += '<section class="ex"><div class="exhead"><span class="exname">' + esc(nm) + (isPR ? '<span class="pr">PR</span>' : '') + '</span><span class="exmeta"><span class="extarget">' + ex.sets + ' × ' + esc(ex.target) + '</span>' + restHtml + '</span></div>';
+      if (ex.opts) h += '<button class="swap" data-act="swap" data-ex="' + i + '">Switch to ' + esc(ex.opts.find(o => o !== nm)) + '</button>';
       h += '<div class="setrow head' + (one ? ' one' : '') + '"><span>Set</span><span>Prev</span>' + ex.f.map(k => '<span>' + k + '</span>').join('') + '<span></span></div>';
       for (let s = 0; s < ex.sets; s++) {
         const st = sets[s];
         const pv = prev ? (prev[s] || prev[prev.length - 1]) : null;
         h += '<div class="setrow' + (one ? ' one' : '') + '"><span class="setno">' + (s + 1) + '</span><span class="prev">' + (pv ? esc(fmtSet(pv, ex.f)) : '–') + '</span>';
         ex.f.forEach(k => {
-          h += '<input type="text" inputmode="' + FIELD[k].mode + '" placeholder="' + k + '" value="' + esc(st[k] === undefined ? '' : st[k]) + '" data-ex="' + i + '" data-set="' + s + '" data-f="' + k + '" aria-label="' + esc(ex.name) + ' set ' + (s + 1) + ' ' + k + '">';
+          h += '<input type="text" inputmode="' + FIELD[k].mode + '" placeholder="' + k + '" value="' + esc(st[k] === undefined ? '' : st[k]) + '" data-ex="' + i + '" data-set="' + s + '" data-f="' + k + '" aria-label="' + esc(nm) + ' set ' + (s + 1) + ' ' + k + '">';
         });
         h += '<button class="done' + (st.done ? ' on' : '') + '" data-act="done" data-ex="' + i + '" data-set="' + s + '" aria-label="Set ' + (s + 1) + ' done">✓</button></div>';
       }
@@ -340,7 +366,7 @@
       h += '<details class="hist"><summary><span class="d">' + fmtDate(s.date) + '</span><span>' + dayLabel + (s.skipped ? ' <span class="skipped">skipped</span>' : '') + '</span><span class="w">W' + s.week + (s.durationSec ? ' <span>' + fmtDur(s.durationSec) + '</span>' : '') + '</span></summary><div class="inner">';
       if (!s.skipped) {
         (s.exercises || []).forEach(e => {
-          const f = (day.exercises.find(x => x.name === e.name) || { f: ['kg', 'reps'] }).f;
+          const f = fieldsOf(e.name, e.sets);
           const v = e.sets.map(st => fmtSet(st, f)).filter(x => x !== '–').join(', ');
           if (v) h += '<div class="hline"><span class="n">' + esc(e.name) + '</span><span class="v">' + esc(v) + '</span></div>';
         });
@@ -387,6 +413,10 @@
       const ex = dayById(S.day).exercises[b.dataset.ex];
       if (ex.f[0] === 'kg' && ex.f[1] === 'reps') renderTrain();
     }
+    else if (a === 'swap') {
+      const day = dayById(S.day); const i = +b.dataset.ex; const ex = day.exercises[i];
+      if (ex && ex.opts) { if (!S.picks) S.picks = {}; S.picks[day.id + ':' + i] = ex.opts.find(o => o !== nameOf(day, ex, i)); save(); renderTrain(); }
+    }
     else if (a === 'finish') finish(false);
     else if (a === 'skip') finish(true);
     else if (a === 'clear') arm('clear', b, 'Tap again to clear', () => { delete S.drafts[S.day]; save(); render(); toast('Inputs cleared'); });
@@ -410,7 +440,7 @@
 
   function finish(skipped) {
     const day = dayById(S.day); const dr = getDraft(day);
-    const exercises = day.exercises.map((ex, i) => ({ name: ex.name, sets: dr.sets[i].map(st => { const o = {}; ex.f.forEach(k => { if (st[k] !== undefined && st[k] !== '') o[k] = st[k]; }); o.done = !!st.done; return o; }) }));
+    const exercises = day.exercises.map((ex, i) => ({ name: nameOf(day, ex, i), sets: dr.sets[i].map(st => { const o = {}; ex.f.forEach(k => { if (st[k] !== undefined && st[k] !== '') o[k] = st[k]; }); o.done = !!st.done; return o; }) }));
     const any = exercises.some(e => e.sets.some(st => st.done || Object.keys(st).length > 1));
     if (!skipped && !any) { toast('Nothing logged yet'); return; }
     const sess = { id: Date.now().toString(36), date: dr.started || new Date().toISOString(), day: day.id, week: S.week, skipped: !!skipped, notes: skipped ? '' : (dr.notes || ''), durationSec: skipped ? 0 : Math.round(elapsedOf(dr)) };
