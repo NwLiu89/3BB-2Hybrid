@@ -188,7 +188,7 @@
 (function () {
   'use strict';
   const KEY = 'bb2h_v1';
-  const PROG = 3; // bump when a day's exercise list changes, so half-filled drafts from the old list are dropped
+  const PROG = 4; // bump when a day's exercise list changes, so half-filled drafts from the old list are dropped
 
   const DAYS = [
     { id: 'lower', dow: 'Mon', label: 'Lower', title: 'Lower', type: 'bb', exercises: [
@@ -210,9 +210,8 @@
       { name: 'Pull-ups', sets: 3, target: '6–10', f: ['kg', 'reps'], rest: 120, g: 'A' },
       { name: 'Decline DB press', sets: 3, target: '8–12', f: ['kg', 'reps'], rest: 0, g: 'B' },
       { name: 'Bent-over DB row', sets: 3, target: '8–12', f: ['kg', 'reps'], rest: 90, g: 'B' },
-      { name: 'Incline DB press', sets: 2, target: '10–12', f: ['kg', 'reps'], rest: 0, g: 'C' },
-      { name: 'Rear-delt fly', sets: 2, target: '15', f: ['kg', 'reps'], rest: 60, g: 'C' },
-      { name: 'Lateral raise', sets: 3, target: '12–15', f: ['kg', 'reps'], rest: 60 },
+      { name: 'DB fly', opts: ['DB fly', 'Cable fly'], sets: 3, target: '12–15', f: ['kg', 'reps'], rest: 0, g: 'C' },
+      { name: 'Lateral raise', sets: 3, target: '12–15', f: ['kg', 'reps'], rest: 60, g: 'C' },
       { name: 'DB curl', sets: 2, target: '10–12', f: ['kg', 'reps'], rest: 0, g: 'D' },
       { name: 'Overhead DB tricep extension', sets: 2, target: '10–15', f: ['kg', 'reps'], rest: 60, g: 'D' }
     ]},
@@ -229,6 +228,8 @@
       { name: 'Single-arm DB row', sets: 3, target: '8–12/side', f: ['kg', 'reps'], rest: 90, g: 'A' },
       { name: 'DB walking lunge', sets: 2, target: '10/leg', f: ['kg', 'reps'], rest: 0, g: 'B' },
       { name: 'Seated DB shoulder press', sets: 2, target: '8–12', f: ['kg', 'reps'], rest: 90, g: 'B' },
+      { name: 'Rear-delt fly', sets: 3, target: '15', f: ['kg', 'reps'], rest: 0, g: 'C' },
+      { name: 'DB shrug', sets: 3, target: '10–15', f: ['kg', 'reps'], rest: 60, g: 'C' },
       { name: 'Farmer’s carry', sets: 3, target: '30 m', f: ['kg', 'm'], rest: 90 }
     ]}
   ];
@@ -250,7 +251,7 @@
       const r = localStorage.getItem(KEY);
       if (r) {
         const o = JSON.parse(r); const st = Object.assign(fresh(), o);
-        if (o.prog !== PROG) { ['lower', 'upper', 'full'].forEach(id => { delete st.drafts[id]; }); st.prog = PROG; }
+        if (o.prog !== PROG) { ((o.prog || 0) < 3 ? ['lower', 'upper', 'full'] : ['upper', 'full']).forEach(id => { delete st.drafts[id]; }); st.prog = PROG; }
         return st;
       }
     } catch (e) {}
